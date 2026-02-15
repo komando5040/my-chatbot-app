@@ -1,10 +1,8 @@
-name: Build Android APK
+name: Build APK with p4a
 
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -12,60 +10,45 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
+      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
-
-      - name: Set up JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install system dependencies
+          python-version: '3.9'
+          
+      - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y \
-            git \
-            zip \
-            unzip \
-            python3-pip \
-            autoconf \
-            libtool \
-            pkg-config \
-            zlib1g-dev \
-            libncurses5-dev \
-            libncursesw5-dev \
-            cmake \
-            libffi-dev \
-            libssl-dev \
-            libtinfo5 || true   # اگه libtinfo5 پیدا نشد، ادامه بده
-
-      - name: Install Cython and buildozer
-        run: |
+          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
           pip install --upgrade pip
-          pip install cython buildozer
-
-      - name: Cache buildozer directory
-        uses: actions/cache@v4
-        with:
-          path: .buildozer
-          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            ${{ runner.os }}-buildozer-
-
-      - name: Build with buildozer
+          pip install cython virtualenv
+          
+      - name: Build APK with p4a
         run: |
-          buildozer -v android debug
-
-      - name: Upload APK artifact
+          # نصب p4a
+          pip install git+https://github.com/kivy/python-for-android.git
+          
+          # ایجاد پوشه برای خروجی
+          mkdir -p bin
+          
+          # ساخت APK
+          python -m pythonforandroid.toolchain create \
+            --dist_name mychatbot \
+            --version 0.1 \
+            --package org.example.mychatbot \
+            --requirements python3,kivy==2.1.0 \
+            --arch arm64-v8a \
+            --sdk_dir $ANDROID_HOME \
+            --ndk_dir $ANDROID_NDK \
+            --android_api 30 \
+            --ndk_version 25b \
+            --sdk_version 30 \
+            --bootstrap sdl2 \
+            --copy-libs \
+            --release
+          
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: my-chatbot-apk
