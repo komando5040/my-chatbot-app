@@ -1,4 +1,4 @@
-name: Build Android APK (Final Version)
+name: Build Android APK
 
 on:
   push:
@@ -8,10 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Create main.py
         run: |
@@ -23,79 +22,44 @@ jobs:
           from kivy.uix.button import Button
           from kivy.uix.scrollview import ScrollView
           from kivy.core.window import Window
-          from kivy.clock import Clock
 
           Window.clearcolor = (0.1, 0.1, 0.1, 1)
 
           class ChatApp(App):
               def build(self):
-                  main = BoxLayout(orientation='vertical', padding=10, spacing=10)
+                  main = BoxLayout(orientation='vertical')
                   
-                  # Chat area
                   self.scroll = ScrollView()
-                  self.chat_area = BoxLayout(orientation='vertical', size_hint_y=None, spacing=5)
+                  self.chat_area = BoxLayout(orientation='vertical', size_hint_y=None)
                   self.chat_area.bind(minimum_height=self.chat_area.setter('height'))
                   self.scroll.add_widget(self.chat_area)
                   
-                  # Input area
-                  bottom = BoxLayout(size_hint_y=0.1, spacing=5)
-                  self.input = TextInput(
-                      multiline=False,
-                      background_color=(0.2, 0.2, 0.2, 1),
-                      foreground_color=(1, 1, 1, 1)
-                  )
-                  send_btn = Button(
-                      text='ارسال',
-                      size_hint_x=0.2,
-                      background_color=(0.2, 0.6, 1, 1)
-                  )
-                  send_btn.bind(on_press=self.send_message)
+                  bottom = BoxLayout(size_hint_y=0.1)
+                  self.input = TextInput(multiline=False)
+                  btn = Button(text='Send', size_hint_x=0.2)
+                  btn.bind(on_press=self.send_message)
                   
                   bottom.add_widget(self.input)
-                  bottom.add_widget(send_btn)
+                  bottom.add_widget(btn)
                   
                   main.add_widget(self.scroll)
                   main.add_widget(bottom)
                   
-                  # Welcome message
-                  self.add_message("🤖 سلام! چطور میتونم کمکت کنم؟", False)
+                  self.add_message("سلام!", False)
                   
                   return main
               
               def send_message(self, instance):
-                  msg = self.input.text.strip()
-                  if not msg:
-                      return
-                  
-                  self.add_message(f"👤 {msg}", True)
-                  self.input.text = ""
-                  
-                  # Auto response
-                  response = "🤖 "
-                  if any(word in msg.lower() for word in ['سلام', 'hi', 'hello', 'درود']):
-                      response += "سلام! حالت چطوره؟"
-                  elif any(word in msg.lower() for word in ['چطوری', 'چطورین', 'how are you']):
-                      response += "من خوبم، ممنون! تو چطوری؟"
-                  elif any(word in msg.lower() for word in ['خوبی', 'good']):
-                      response += "آره خوبم، مرسی!"
-                  else:
-                      response += "متوجه نشدم. میشه یه چیز دیگه بگی؟"
-                  
-                  Clock.schedule_once(lambda dt: self.add_message(response, False), 0.5)
+                  msg = self.input.text
+                  if msg:
+                      self.add_message("شما: " + msg, True)
+                      self.input.text = ""
+                      self.add_message("ربات: سلام چطوری؟", False)
               
               def add_message(self, text, is_user):
-                  label = Label(
-                      text=text,
-                      size_hint_y=None,
-                      height=40,
-                      color=(1, 1, 1, 1),
-                      halign='right' if is_user else 'left',
-                      valign='middle',
-                      text_size=(Window.width - 40, None)
-                  )
-                  label.bind(texture_size=label.setter('size'))
+                  label = Label(text=text, size_hint_y=None, height=30)
                   self.chat_area.add_widget(label)
-                  Clock.schedule_once(lambda dt: setattr(self.scroll, 'scroll_y', 0), 0.1)
+                  self.scroll.scroll_y = 0
 
           if __name__ == '__main__':
               ChatApp().run()
@@ -105,6 +69,51 @@ jobs:
         run: |
           cat > buildozer.spec << 'EOF'
           [app]
+          title = My ChatGPT
+          package.name = myapp
+          package.domain = org.test
+          source.dir = .
+          source.include_exts = py,png,jpg,kv,atlas
+          version = 0.1
+          requirements = python3,kivy
+          orientation = portrait
+          osx.python_version = 3
+          osx.kivy_version = 2.1.0
+          fullscreen = 0
+
+          [buildozer]
+          log_level = 2
+          warn_on_root = 1
+
+          android.accept_sdk_license = True
+          android.ndk = 25b
+          android.sdk = 24
+          android.minapi = 21
+          android.api = 31
+          android.arch = arm64-v8a
+          EOF
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
+          pip install --upgrade pip
+          pip install cython buildozer
+
+      - name: Build with buildozer
+        run: |
+          yes | buildozer android debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-chatbot-apk
+          path: bin/*.apk          [app]
           title = My ChatGPT
           package.name = mychatbot
           package.domain = org.example
