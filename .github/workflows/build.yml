@@ -12,81 +12,61 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-    - name: Install system dependencies
-      run: |
-        sudo apt update
-        for pkg in git zip unzip openjdk-17-jdk-headless python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev; do
-          echo "📦 Installing $pkg ..."
-          sudo apt-get install -y $pkg || echo "⚠️ Warning: Failed to install $pkg, continuing..."
-        done
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
-        # Optional: libtinfo5 for older NDKs
-        if ! dpkg -l | grep -q libtinfo5; then
-          echo "🔍 libtinfo5 not found. Attempting to install from Ubuntu 22.04 repository..."
-          sudo add-apt-repository -y 'deb http://archive.ubuntu.com/ubuntu jammy main universe' || true
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install system dependencies
+        run: |
           sudo apt update
-          sudo apt-get install -y libtinfo5 || echo "⚠️ Could not install libtinfo5. Build might still work."
-        fi
+          sudo apt install -y \
+            git \
+            zip \
+            unzip \
+            python3-pip \
+            autoconf \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            cmake \
+            libffi-dev \
+            libssl-dev \
+            libtinfo5 || true   # اگه libtinfo5 پیدا نشد، ادامه بده
 
-    - name: Install Android SDK command-line tools
-      run: |
-        # Create SDK directory
-        mkdir -p $HOME/.buildozer/android/platform/android-sdk
-        cd $HOME/.buildozer/android/platform
+      - name: Install Cython and buildozer
+        run: |
+          pip install --upgrade pip
+          pip install cython buildozer
 
-        # Download latest command-line tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-latest.zip
-        unzip -q commandlinetools-linux-latest.zip
+      - name: Cache buildozer directory
+        uses: actions/cache@v4
+        with:
+          path: .buildozer
+          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            ${{ runner.os }}-buildozer-
 
-        # Organize files as expected by buildozer (create symlink)
-        mkdir -p android-sdk/cmdline-tools
-        mv cmdline-tools android-sdk/cmdline-tools/latest
-        cd android-sdk
-        ln -s cmdline-tools/latest tools   # Symlink for old buildozer compatibility
-        cd ..
+      - name: Build with buildozer
+        run: |
+          buildozer -v android debug
 
-        rm commandlinetools-linux-latest.zip
-
-        # Set environment variables
-        echo "ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
-        echo "$HOME/.buildozer/android/platform/android-sdk/tools/bin" >> $GITHUB_PATH
-
-    - name: Accept Android SDK licenses and install required components
-      run: |
-        # Accept all licenses automatically
-        yes | sdkmanager --licenses --sdk_root=$ANDROID_SDK_ROOT || true
-
-        # Install platform tools, platform and build-tools
-        sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" --sdk_root=$ANDROID_SDK_ROOT
-
-    - name: Install Cython and buildozer
-      run: |
-        pip install --upgrade pip
-        pip install cython buildozer
-
-    - name: Cache buildozer directory
-      uses: actions/cache@v4
-      with:
-        path: .buildozer
-        key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
-        restore-keys: |
-          ${{ runner.os }}-buildozer-
-
-    - name: Build with buildozer
-      run: |
-        export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
-        buildozer -v android debug
-
-    - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: my-chatbot-apk
-        path: bin/*.apk
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-chatbot-apk
+          path: bin/*.apk
