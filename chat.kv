@@ -12,7 +12,7 @@
         padding: dp(10)
 
 <ChatBubble>:
-    # این کلاس در main.py تعریف شده است، اما می‌توانیم ظاهر آن را اینجا تنظیم کنیم
+    # This class is defined in main.py, but we can customize its appearance here.
     canvas.before:
         Color:
             rgba: (0.2, 0.3, 0.4, 1) if not self.ids.get('is_user') else (0.1, 0.4, 0.6, 1)
