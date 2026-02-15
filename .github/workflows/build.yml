@@ -1,4 +1,4 @@
-name: Build APK with p4a
+name: Build Android APK with Docker
 
 on:
   push:
@@ -8,46 +8,109 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: kivy/buildozer:latest
 
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-          
-      - name: Install dependencies
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create buildozer.spec
         run: |
-          sudo apt update
-          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
-          pip install --upgrade pip
-          pip install cython virtualenv
-          
-      - name: Build APK with p4a
+          cat > buildozer.spec << 'EOF'
+          [app]
+          title = My ChatGPT
+          package.name = mychatbot
+          package.domain = org.example
+          source.dir = .
+          source.include_exts = py,png,jpg,kv,atlas
+          version = 0.1
+          requirements = python3,kivy==2.1.0
+          orientation = portrait
+          fullscreen = 0
+
+          [buildozer]
+          log_level = 2
+          android.accept_sdk_license = True
+          android.ndk = 25b
+          android.sdk = 24
+          android.minapi = 21
+          android.api = 31
+          android.arch = arm64-v8a
+          EOF
+
+      - name: Create main.py
         run: |
-          # نصب p4a
-          pip install git+https://github.com/kivy/python-for-android.git
-          
-          # ایجاد پوشه برای خروجی
-          mkdir -p bin
-          
-          # ساخت APK
-          python -m pythonforandroid.toolchain create \
-            --dist_name mychatbot \
-            --version 0.1 \
-            --package org.example.mychatbot \
-            --requirements python3,kivy==2.1.0 \
-            --arch arm64-v8a \
-            --sdk_dir $ANDROID_HOME \
-            --ndk_dir $ANDROID_NDK \
-            --android_api 30 \
-            --ndk_version 25b \
-            --sdk_version 30 \
-            --bootstrap sdl2 \
-            --copy-libs \
-            --release
-          
+          cat > main.py << 'EOF'
+          from kivy.app import App
+          from kivy.uix.boxlayout import BoxLayout
+          from kivy.uix.label import Label
+          from kivy.uix.textinput import TextInput
+          from kivy.uix.button import Button
+          from kivy.uix.scrollview import ScrollView
+          from kivy.core.window import Window
+          from kivy.clock import Clock
+
+          Window.clearcolor = (0.1, 0.1, 0.1, 1)
+
+          class ChatApp(App):
+              def build(self):
+                  main = BoxLayout(orientation='vertical')
+                  
+                  self.scroll = ScrollView()
+                  self.chat_area = BoxLayout(orientation='vertical', size_hint_y=None)
+                  self.chat_area.bind(minimum_height=self.chat_area.setter('height'))
+                  self.scroll.add_widget(self.chat_area)
+                  
+                  bottom = BoxLayout(size_hint_y=0.1)
+                  self.input = TextInput(multiline=False)
+                  btn = Button(text='Send', size_hint_x=0.2)
+                  btn.bind(on_press=self.send_message)
+                  
+                  bottom.add_widget(self.input)
+                  bottom.add_widget(btn)
+                  
+                  main.add_widget(self.scroll)
+                  main.add_widget(bottom)
+                  
+                  self.add_message("سلام! چطور می‌تونم کمک کنم؟", False)
+                  
+                  return main
+              
+              def send_message(self, instance):
+                  msg = self.input.text.strip()
+                  if msg:
+                      self.add_message(msg, True)
+                      self.input.text = ""
+                      
+                      if msg.lower() in ['سلام', 'hi', 'hello', 'slm']:
+                          response = "سلام! حالت چطوره؟"
+                      elif 'چطوری' in msg.lower():
+                          response = "من خوبم، تو چطوری؟"
+                      else:
+                          response = "متوجه نشدم. میشه یه چیز دیگه بگی؟"
+                      
+                      Clock.schedule_once(lambda dt: self.add_message(response, False), 0.5)
+              
+              def add_message(self, text, is_user):
+                  label = Label(
+                      text=text,
+                      size_hint_y=None,
+                      height=40,
+                      color=(1,1,1,1),
+                      halign='right' if is_user else 'left'
+                  )
+                  self.chat_area.add_widget(label)
+                  self.scroll.scroll_y = 0
+
+          if __name__ == '__main__':
+              ChatApp().run()
+          EOF
+
+      - name: Build with buildozer
+        run: |
+          buildozer android debug
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
