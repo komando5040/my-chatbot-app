@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: kivy/buildozer:latest
 
     steps:
       - uses: actions/checkout@v4
@@ -45,19 +47,24 @@ jobs:
                   main.add_widget(self.scroll)
                   main.add_widget(bottom)
                   
-                  self.add_message("سلام!", False)
+                  self.add_message("سلام! چطور می‌تونم کمک کنم؟", False)
                   
                   return main
               
               def send_message(self, instance):
-                  msg = self.input.text
+                  msg = self.input.text.strip()
                   if msg:
-                      self.add_message("شما: " + msg, True)
+                      self.add_message(f"شما: {msg}", True)
                       self.input.text = ""
-                      self.add_message("ربات: سلام چطوری؟", False)
+                      self.add_message("ربات: سلام! حالت چطوره؟", False)
               
               def add_message(self, text, is_user):
-                  label = Label(text=text, size_hint_y=None, height=30)
+                  label = Label(
+                      text=text,
+                      size_hint_y=None,
+                      height=30,
+                      halign='right' if is_user else 'left'
+                  )
                   self.chat_area.add_widget(label)
                   self.scroll.scroll_y = 0
 
@@ -70,51 +77,6 @@ jobs:
           cat > buildozer.spec << 'EOF'
           [app]
           title = My ChatGPT
-          package.name = myapp
-          package.domain = org.test
-          source.dir = .
-          source.include_exts = py,png,jpg,kv,atlas
-          version = 0.1
-          requirements = python3,kivy
-          orientation = portrait
-          osx.python_version = 3
-          osx.kivy_version = 2.1.0
-          fullscreen = 0
-
-          [buildozer]
-          log_level = 2
-          warn_on_root = 1
-
-          android.accept_sdk_license = True
-          android.ndk = 25b
-          android.sdk = 24
-          android.minapi = 21
-          android.api = 31
-          android.arch = arm64-v8a
-          EOF
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
-          pip install --upgrade pip
-          pip install cython buildozer
-
-      - name: Build with buildozer
-        run: |
-          yes | buildozer android debug
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: my-chatbot-apk
-          path: bin/*.apk          [app]
-          title = My ChatGPT
           package.name = mychatbot
           package.domain = org.example
           source.dir = .
@@ -122,15 +84,10 @@ jobs:
           version = 0.1
           requirements = python3,kivy==2.1.0
           orientation = portrait
-          osx.python_version = 3
-          osx.kivy_version = 2.1.0
           fullscreen = 0
 
           [buildozer]
           log_level = 2
-          warn_on_root = 1
-
-          [buildozer.settings]
           android.accept_sdk_license = True
           android.ndk = 25b
           android.sdk = 24
@@ -139,50 +96,12 @@ jobs:
           android.arch = arm64-v8a
           EOF
 
-      - name: Install buildozer and dependencies
+      - name: Build APK
         run: |
-          sudo apt update
-          sudo apt install -y python3-pip python3-dev python3-venv git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
-          pip3 install --user --upgrade pip
-          pip3 install --user cython buildozer
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Build APK (Auto Yes)
-        run: |
-          # این خط معجزه می‌کنه - به buildozer می‌گه به همه سوالات "yes" بده
-          yes | buildozer android debug || true
-          
-          # اگه فایل ساخته شد، باشه. اگه نه، یه راه دیگه
-          if [ -z "$(ls bin/*.apk 2>/dev/null)" ]; then
-            echo "⚠️ Buildozer failed, trying direct p4a..."
-            
-            # نصب python-for-android مستقیم
-            pip3 install --user git+https://github.com/kivy/python-for-android.git
-            
-            # ساختن با p4a مستقیم
-            yes | python3 -m pythonforandroid.toolchain create \
-              --dist_name mychatbot \
-              --version 0.1 \
-              --package org.example.mychatbot \
-              --requirements python3,kivy==2.1.0 \
-              --arch arm64-v8a \
-              --api 31 \
-              --ndk-version 25b \
-              --sdk-version 31 \
-              --bootstrap sdl2 \
-              --copy-libs \
-              --release \
-              --ndk-dir $ANDROID_NDK_ROOT \
-              --sdk-dir $ANDROID_HOME
-              
-            # کپی کردن فایل به پوشه bin
-            mkdir -p bin
-            cp ~/*.apk bin/ 2>/dev/null || true
-          fi
+          yes | buildozer android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: my-chatbot-apk
           path: bin/*.apk
-        if: success() or failure()  # همیشه آپلود کن، حتی اگه بیلد با خطا تموم بشه
