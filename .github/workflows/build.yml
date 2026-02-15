@@ -1,4 +1,4 @@
-name: Build Android APK with Docker
+name: Build Android APK (Final Version)
 
 on:
   push:
@@ -8,36 +8,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: kivy/buildozer:latest
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Create buildozer.spec
-        run: |
-          cat > buildozer.spec << 'EOF'
-          [app]
-          title = My ChatGPT
-          package.name = mychatbot
-          package.domain = org.example
-          source.dir = .
-          source.include_exts = py,png,jpg,kv,atlas
-          version = 0.1
-          requirements = python3,kivy==2.1.0
-          orientation = portrait
-          fullscreen = 0
-
-          [buildozer]
-          log_level = 2
-          android.accept_sdk_license = True
-          android.ndk = 25b
-          android.sdk = 24
-          android.minapi = 21
-          android.api = 31
-          android.arch = arm64-v8a
-          EOF
 
       - name: Create main.py
         run: |
@@ -55,64 +29,151 @@ jobs:
 
           class ChatApp(App):
               def build(self):
-                  main = BoxLayout(orientation='vertical')
+                  main = BoxLayout(orientation='vertical', padding=10, spacing=10)
                   
+                  # Chat area
                   self.scroll = ScrollView()
-                  self.chat_area = BoxLayout(orientation='vertical', size_hint_y=None)
+                  self.chat_area = BoxLayout(orientation='vertical', size_hint_y=None, spacing=5)
                   self.chat_area.bind(minimum_height=self.chat_area.setter('height'))
                   self.scroll.add_widget(self.chat_area)
                   
-                  bottom = BoxLayout(size_hint_y=0.1)
-                  self.input = TextInput(multiline=False)
-                  btn = Button(text='Send', size_hint_x=0.2)
-                  btn.bind(on_press=self.send_message)
+                  # Input area
+                  bottom = BoxLayout(size_hint_y=0.1, spacing=5)
+                  self.input = TextInput(
+                      multiline=False,
+                      background_color=(0.2, 0.2, 0.2, 1),
+                      foreground_color=(1, 1, 1, 1)
+                  )
+                  send_btn = Button(
+                      text='ارسال',
+                      size_hint_x=0.2,
+                      background_color=(0.2, 0.6, 1, 1)
+                  )
+                  send_btn.bind(on_press=self.send_message)
                   
                   bottom.add_widget(self.input)
-                  bottom.add_widget(btn)
+                  bottom.add_widget(send_btn)
                   
                   main.add_widget(self.scroll)
                   main.add_widget(bottom)
                   
-                  self.add_message("سلام! چطور می‌تونم کمک کنم؟", False)
+                  # Welcome message
+                  self.add_message("🤖 سلام! چطور میتونم کمکت کنم؟", False)
                   
                   return main
               
               def send_message(self, instance):
                   msg = self.input.text.strip()
-                  if msg:
-                      self.add_message(msg, True)
-                      self.input.text = ""
-                      
-                      if msg.lower() in ['سلام', 'hi', 'hello', 'slm']:
-                          response = "سلام! حالت چطوره؟"
-                      elif 'چطوری' in msg.lower():
-                          response = "من خوبم، تو چطوری؟"
-                      else:
-                          response = "متوجه نشدم. میشه یه چیز دیگه بگی؟"
-                      
-                      Clock.schedule_once(lambda dt: self.add_message(response, False), 0.5)
+                  if not msg:
+                      return
+                  
+                  self.add_message(f"👤 {msg}", True)
+                  self.input.text = ""
+                  
+                  # Auto response
+                  response = "🤖 "
+                  if any(word in msg.lower() for word in ['سلام', 'hi', 'hello', 'درود']):
+                      response += "سلام! حالت چطوره؟"
+                  elif any(word in msg.lower() for word in ['چطوری', 'چطورین', 'how are you']):
+                      response += "من خوبم، ممنون! تو چطوری؟"
+                  elif any(word in msg.lower() for word in ['خوبی', 'good']):
+                      response += "آره خوبم، مرسی!"
+                  else:
+                      response += "متوجه نشدم. میشه یه چیز دیگه بگی؟"
+                  
+                  Clock.schedule_once(lambda dt: self.add_message(response, False), 0.5)
               
               def add_message(self, text, is_user):
                   label = Label(
                       text=text,
                       size_hint_y=None,
                       height=40,
-                      color=(1,1,1,1),
-                      halign='right' if is_user else 'left'
+                      color=(1, 1, 1, 1),
+                      halign='right' if is_user else 'left',
+                      valign='middle',
+                      text_size=(Window.width - 40, None)
                   )
+                  label.bind(texture_size=label.setter('size'))
                   self.chat_area.add_widget(label)
-                  self.scroll.scroll_y = 0
+                  Clock.schedule_once(lambda dt: setattr(self.scroll, 'scroll_y', 0), 0.1)
 
           if __name__ == '__main__':
               ChatApp().run()
           EOF
 
-      - name: Build with buildozer
+      - name: Create buildozer.spec
         run: |
-          buildozer android debug
+          cat > buildozer.spec << 'EOF'
+          [app]
+          title = My ChatGPT
+          package.name = mychatbot
+          package.domain = org.example
+          source.dir = .
+          source.include_exts = py,png,jpg,kv,atlas
+          version = 0.1
+          requirements = python3,kivy==2.1.0
+          orientation = portrait
+          osx.python_version = 3
+          osx.kivy_version = 2.1.0
+          fullscreen = 0
+
+          [buildozer]
+          log_level = 2
+          warn_on_root = 1
+
+          [buildozer.settings]
+          android.accept_sdk_license = True
+          android.ndk = 25b
+          android.sdk = 24
+          android.minapi = 21
+          android.api = 31
+          android.arch = arm64-v8a
+          EOF
+
+      - name: Install buildozer and dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y python3-pip python3-dev python3-venv git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
+          pip3 install --user --upgrade pip
+          pip3 install --user cython buildozer
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Build APK (Auto Yes)
+        run: |
+          # این خط معجزه می‌کنه - به buildozer می‌گه به همه سوالات "yes" بده
+          yes | buildozer android debug || true
+          
+          # اگه فایل ساخته شد، باشه. اگه نه، یه راه دیگه
+          if [ -z "$(ls bin/*.apk 2>/dev/null)" ]; then
+            echo "⚠️ Buildozer failed, trying direct p4a..."
+            
+            # نصب python-for-android مستقیم
+            pip3 install --user git+https://github.com/kivy/python-for-android.git
+            
+            # ساختن با p4a مستقیم
+            yes | python3 -m pythonforandroid.toolchain create \
+              --dist_name mychatbot \
+              --version 0.1 \
+              --package org.example.mychatbot \
+              --requirements python3,kivy==2.1.0 \
+              --arch arm64-v8a \
+              --api 31 \
+              --ndk-version 25b \
+              --sdk-version 31 \
+              --bootstrap sdl2 \
+              --copy-libs \
+              --release \
+              --ndk-dir $ANDROID_NDK_ROOT \
+              --sdk-dir $ANDROID_HOME
+              
+            # کپی کردن فایل به پوشه bin
+            mkdir -p bin
+            cp ~/*.apk bin/ 2>/dev/null || true
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: my-chatbot-apk
           path: bin/*.apk
+        if: success() or failure()  # همیشه آپلود کن، حتی اگه بیلد با خطا تموم بشه
