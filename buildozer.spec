@@ -14,9 +14,12 @@ fullscreen = 0
 [buildozer]
 log_level = 2
 warn_on_root = 1
+
+# تنظیمات اندروید
 android.accept_sdk_license = True
-android.ndk = 23b
-android.sdk = 24
+android.ndk = 25.2.9519653
+android.sdk = 34
+android.build_tools = 34.0.0
 android.minapi = 21
-android.api = 31
+android.api = 34
 android.arch = arm64-v8a
