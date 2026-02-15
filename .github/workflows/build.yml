@@ -23,23 +23,40 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt update
-        
-        # نصب همه بسته‌ها به‌صورت یکی‌یکی برای جلوگیری از توقف کل فرایند
-        for pkg in git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev; do
+        # بسته‌های ضروری برای بیلد
+        for pkg in git zip unzip openjdk-17-jdk-headless python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev; do
           echo "📦 Installing $pkg ..."
-          sudo apt-get install -y $pkg || echo "⚠️  Warning: Failed to install $pkg, continuing..."
+          sudo apt-get install -y $pkg || echo "⚠️ Warning: Failed to install $pkg, continuing..."
         done
 
-        # تلاش ویژه برای نصب libtinfo5 (اگر نیاز باشد)
+        # تلاش برای نصب libtinfo5 (اختیاری)
         if ! dpkg -l | grep -q libtinfo5; then
           echo "🔍 libtinfo5 not found. Attempting to install from Ubuntu 22.04 repository..."
-          # اضافه کردن مخزن Ubuntu 22.04 (Jammy) با اولویت پایین
           sudo add-apt-repository -y 'deb http://archive.ubuntu.com/ubuntu jammy main universe' || true
           sudo apt update
-          sudo apt-get install -y libtinfo5 || echo "⚠️  Could not install libtinfo5. Build might still work."
-        else
-          echo "✅ libtinfo5 is already installed."
+          sudo apt-get install -y libtinfo5 || echo "⚠️ Could not install libtinfo5. Build might still work."
         fi
+
+    - name: Install Android SDK command-line tools
+      run: |
+        # ایجاد مسیر SDK
+        mkdir -p $HOME/.buildozer/android/platform/android-sdk
+        cd $HOME/.buildozer/android/platform
+        # دانلود cmdline-tools
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -q commandlinetools-linux-9477386_latest.zip
+        mv cmdline-tools android-sdk/cmdline-tools
+        rm commandlinetools-linux-9477386_latest.zip
+        # تنظیم متغیر محیطی
+        echo "ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
+        echo "$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/bin" >> $GITHUB_PATH
+
+    - name: Accept Android SDK licenses
+      run: |
+        # پذیرش خودکار همه لایسنس‌ها
+        yes | sdkmanager --licenses --sdk_root=$ANDROID_SDK_ROOT || true
+        # نصب build-tools و پلتفرم مورد نیاز
+        sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" --sdk_root=$ANDROID_SDK_ROOT
 
     - name: Install Cython and buildozer
       run: |
@@ -56,6 +73,8 @@ jobs:
 
     - name: Build with buildozer
       run: |
+        # استفاده از SDK نصب‌شده
+        export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
         buildozer -v android debug
 
     - name: Upload APK artifact
