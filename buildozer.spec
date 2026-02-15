@@ -15,7 +15,6 @@ fullscreen = 0
 log_level = 2
 warn_on_root = 1
 
-# تنظیمات اندروید
 android.accept_sdk_license = True
 android.ndk = 25.2.9519653
 android.sdk = 34
