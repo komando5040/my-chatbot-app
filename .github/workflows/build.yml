@@ -5,7 +5,7 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # امکان اجرای دستی
+  workflow_dispatch:
 
 jobs:
   build:
@@ -23,7 +23,23 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt update
-        sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+        
+        # نصب همه بسته‌ها به‌صورت یکی‌یکی برای جلوگیری از توقف کل فرایند
+        for pkg in git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev; do
+          echo "📦 Installing $pkg ..."
+          sudo apt-get install -y $pkg || echo "⚠️  Warning: Failed to install $pkg, continuing..."
+        done
+
+        # تلاش ویژه برای نصب libtinfo5 (اگر نیاز باشد)
+        if ! dpkg -l | grep -q libtinfo5; then
+          echo "🔍 libtinfo5 not found. Attempting to install from Ubuntu 22.04 repository..."
+          # اضافه کردن مخزن Ubuntu 22.04 (Jammy) با اولویت پایین
+          sudo add-apt-repository -y 'deb http://archive.ubuntu.com/ubuntu jammy main universe' || true
+          sudo apt update
+          sudo apt-get install -y libtinfo5 || echo "⚠️  Could not install libtinfo5. Build might still work."
+        else
+          echo "✅ libtinfo5 is already installed."
+        fi
 
     - name: Install Cython and buildozer
       run: |
