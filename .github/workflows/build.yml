@@ -47,16 +47,16 @@ jobs:
                   main.add_widget(self.scroll)
                   main.add_widget(bottom)
                   
-                  self.add_message("سلام! چطور می‌تونم کمک کنم؟", False)
+                  self.add_message("Hello! How can I help?", False)
                   
                   return main
               
               def send_message(self, instance):
                   msg = self.input.text.strip()
                   if msg:
-                      self.add_message(f"شما: {msg}", True)
+                      self.add_message(f"you: {msg}", True)
                       self.input.text = ""
-                      self.add_message("ربات: سلام! حالت چطوره؟", False)
+                      self.add_message("Robot: Hello! How are you?", False)
               
               def add_message(self, text, is_user):
                   label = Label(
