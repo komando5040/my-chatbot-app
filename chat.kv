@@ -1,1 +1,22 @@
+#:kivy 2.1.0
 
+<ChatHistory>:
+    viewclass: 'ChatBubble'
+    RecycleBoxLayout:
+        default_size: None, dp(56)
+        default_size_hint: 1, None
+        size_hint_y: None
+        height: self.minimum_height
+        orientation: 'vertical'
+        spacing: dp(5)
+        padding: dp(10)
+
+<ChatBubble>:
+    # این کلاس در main.py تعریف شده است، اما می‌توانیم ظاهر آن را اینجا تنظیم کنیم
+    canvas.before:
+        Color:
+            rgba: (0.2, 0.3, 0.4, 1) if not self.ids.get('is_user') else (0.1, 0.4, 0.6, 1)
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(10)]
